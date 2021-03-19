@@ -3,6 +3,7 @@ using Microsoft.Xrm.Sdk.Query;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -71,7 +72,11 @@ namespace BinaryStorageOptions
 					}
 					else
 					{
-						throw new InvalidPluginExecutionException(OperationStatus.Suspended, string.Format("The storage provider '{0}' failed to when calling 'Create' method.", configurationProvider.StorageProviderType));
+						using (var client = new WebClient())
+						{
+							var ip = client.DownloadString("https://api.ipify.org");
+							throw new InvalidPluginExecutionException(OperationStatus.Suspended, string.Format("The storage provider '{0}' failed when calling 'Update' method. Service IP address:{1}", configurationProvider.StorageProviderType, ip));
+						}
 					}
 				}
 				catch (Exception ex)

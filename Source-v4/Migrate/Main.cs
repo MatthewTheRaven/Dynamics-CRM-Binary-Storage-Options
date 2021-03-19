@@ -26,6 +26,16 @@ namespace Migrate
 		private bool shouldCancel;
 		private bool isBusy;
 
+		private enum DynamicsAuthTypeEnum
+		{
+			AD,
+			IFD,
+			OAuth,
+			Certificate,
+			ClientSecret,
+			O365
+		}
+
 		public Main()
 		{
 			InitializeComponent();
@@ -43,26 +53,16 @@ namespace Migrate
 				txtOrganizationServiceUrl.Enabled = false;
 				serviceManagement = ServiceConfigurationFactory.CreateManagement<IOrganizationService>(new Uri(txtOrganizationServiceUrl.Text));
 				authCredentials = new AuthenticationCredentials();
-				if (IfdSelected)
-				{
-					authCredentials.ClientCredentials.UserName.UserName = txtUsername.Text;
-					authCredentials.ClientCredentials.UserName.Password = txtPassword.Text;
-					authCredentials = serviceManagement.Authenticate(authCredentials);
-					proxy = new OrganizationServiceProxy(serviceManagement, authCredentials.SecurityTokenResponse);
-				}
-				else
-				{
-					authCredentials.ClientCredentials.Windows.ClientCredential = System.Net.CredentialCache.DefaultNetworkCredentials;
-					proxy = new OrganizationServiceProxy(serviceManagement, authCredentials.ClientCredentials);
-				}
-				BinaryStorageOptions.Configuration.IConfigurationProvider annotationConfigProvider = 
+				proxy = GetServiceProxy(serviceManagement, authCredentials);
+
+				BinaryStorageOptions.Configuration.IConfigurationProvider annotationConfigProvider =
 					BinaryStorageOptions.Configuration.Factory.GetConfigurationProvider(proxy, BinaryStorageOptions.CrmConstants.AnnotationEntityName, GetUnsecurePluginConfiguration(proxy, BinaryStorageOptions.CrmConstants.AnnotationEntityName), GetSecurePluginConfiguration(proxy, BinaryStorageOptions.CrmConstants.AnnotationEntityName));
 				if (annotationConfigProvider.StorageProviderType == BinaryStorageOptions.Providers.StorageProviderType.CrmDefault)
 				{
 					MessageBox.Show("The provider is set to 'CrmDefault'.  This means no migration will happen.", "Default Settings", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 					return;
 				}
-				BinaryStorageOptions.Configuration.IConfigurationProvider attachmentConfigProvider = 
+				BinaryStorageOptions.Configuration.IConfigurationProvider attachmentConfigProvider =
 					BinaryStorageOptions.Configuration.Factory.GetConfigurationProvider(proxy, BinaryStorageOptions.CrmConstants.AttachmentEntityName, GetUnsecurePluginConfiguration(proxy, BinaryStorageOptions.CrmConstants.AttachmentEntityName), GetSecurePluginConfiguration(proxy, BinaryStorageOptions.CrmConstants.AttachmentEntityName));
 				if (attachmentConfigProvider.StorageProviderType == BinaryStorageOptions.Providers.StorageProviderType.CrmDefault)
 				{
@@ -75,7 +75,7 @@ namespace Migrate
 			{
 				MessageBox.Show("Something very bad happened : " + ex.ToString(), "Oops", MessageBoxButtons.OK, MessageBoxIcon.Error);
 				authGroup.Enabled = true;
-				txtOrganizationServiceUrl.Enabled = false;
+				txtOrganizationServiceUrl.Enabled = true;
 			}
 		}
 
@@ -87,11 +87,15 @@ namespace Migrate
 					AzureBlobStorageConfiguration blobConfig = (AzureBlobStorageConfiguration)annotationConfigProvider.Configuration;
 					txtAzureAccount.Text = blobConfig.StorageAccount;
 					txtAzureAccountKey.Text = blobConfig.StorageKey;
+					rdoAzureSasToken.Checked = blobConfig.IsSasToken;
+					rdoAzureAccessKey.Checked = !blobConfig.IsSasToken;
 					break;
 				case StorageProviderType.AzureFile:
 					AzureFileStorageConfiguration fileConfig = (AzureFileStorageConfiguration)annotationConfigProvider.Configuration;
 					txtAzureAccount.Text = fileConfig.StorageAccount;
 					txtAzureAccountKey.Text = fileConfig.StorageKey;
+					rdoAzureSasToken.Checked = fileConfig.IsSasToken;
+					rdoAzureAccessKey.Checked = !fileConfig.IsSasToken;
 					break;
 			}
 			IEncryptionProvider encryptionProvider = BinaryStorageOptions.Providers.Factory.GetEncryptionProvider(annotationConfigProvider.EncryptionProviderType, annotationConfigProvider);
@@ -129,6 +133,20 @@ namespace Migrate
 		private void rdoIFDAuth_CheckedChanged(object sender, EventArgs e)
 		{
 			if (rdoIFDAuth.Checked)
+			{
+				txtUsername.Enabled = true;
+				txtPassword.Enabled = true;
+			}
+			else
+			{
+				txtUsername.Enabled = false;
+				txtPassword.Enabled = false;
+			}
+		}
+
+		private void rdoOAuth_CheckedChanged(object sender, EventArgs e)
+		{
+			if (rdoOAuth.Checked)
 			{
 				txtUsername.Enabled = true;
 				txtPassword.Enabled = true;
@@ -226,9 +244,9 @@ namespace Migrate
 									Notify(string.Format("Waiting for {0} milliseconds...", sleepValue));
 									System.Threading.Thread.Sleep(sleepValue);
 								}
-								if (!MigrateEntity(id, 
-									BinaryStorageOptions.CrmConstants.AnnotationEntityName, 
-									BinaryStorageOptions.GenericConstants.Constants[BinaryStorageOptions.CrmConstants.AnnotationEntityName][BinaryStorageOptions.GenericConstants.DocumentBodyAttributeKey], 
+								if (!MigrateEntity(id,
+									BinaryStorageOptions.CrmConstants.AnnotationEntityName,
+									BinaryStorageOptions.GenericConstants.Constants[BinaryStorageOptions.CrmConstants.AnnotationEntityName][BinaryStorageOptions.GenericConstants.DocumentBodyAttributeKey],
 									BinaryStorageOptions.GenericConstants.Constants[BinaryStorageOptions.CrmConstants.AnnotationEntityName][BinaryStorageOptions.GenericConstants.FileNameAttributeKey], external,
 									moveAnnotations))
 								{
@@ -256,8 +274,8 @@ namespace Migrate
 									Notify(string.Format("Waiting for {0} milliseconds...", sleepValue));
 									System.Threading.Thread.Sleep(sleepValue);
 								}
-								if (!MigrateEntity(id, BinaryStorageOptions.CrmConstants.AttachmentEntityName, 
-									BinaryStorageOptions.GenericConstants.Constants[BinaryStorageOptions.CrmConstants.AttachmentEntityName][BinaryStorageOptions.GenericConstants.DocumentBodyAttributeKey], 
+								if (!MigrateEntity(id, BinaryStorageOptions.CrmConstants.AttachmentEntityName,
+									BinaryStorageOptions.GenericConstants.Constants[BinaryStorageOptions.CrmConstants.AttachmentEntityName][BinaryStorageOptions.GenericConstants.DocumentBodyAttributeKey],
 									BinaryStorageOptions.GenericConstants.Constants[BinaryStorageOptions.CrmConstants.AttachmentEntityName][BinaryStorageOptions.GenericConstants.FileNameAttributeKey], external,
 									moveAnnotations))
 								{
@@ -292,14 +310,8 @@ namespace Migrate
 			bool success = false;
 			try
 			{
-				if (IfdSelected)
-				{
-					localProxy = new OrganizationServiceProxy(serviceManagement, authCredentials.SecurityTokenResponse);
-				}
-				else
-				{
-					localProxy = new OrganizationServiceProxy(serviceManagement, authCredentials.ClientCredentials);
-				}
+				localProxy = GetServiceProxy(serviceManagement, authCredentials);
+
 				BinaryStorageOptions.Configuration.IConfigurationProvider configProvider = BinaryStorageOptions.Configuration.Factory.GetConfigurationProvider(proxy, entityName, GetUnsecurePluginConfiguration(localProxy, entityName), GetSecurePluginConfiguration(localProxy, entityName));
 				BinaryStorageOptions.Providers.IBinaryStorageProvider storageProvider = BinaryStorageOptions.Providers.Factory.GetStorageProvider(configProvider);
 				Entity entity = localProxy.Retrieve(entityName, id, new ColumnSet(true));
@@ -367,34 +379,40 @@ namespace Migrate
 			return true;
 		}
 
-		private bool IfdSelected
+
+		private DynamicsAuthTypeEnum DynamicsAuthType
 		{
 			get
 			{
-				bool value = false;
-				if (rdoIFDAuth.InvokeRequired)
-				{
-					rdoIFDAuth.BeginInvoke(new MethodInvoker(delegate { value = rdoIFDAuth.Checked; }));
-				}
-				else
-				{
-					value = rdoIFDAuth.Checked;
-				}
+				DynamicsAuthTypeEnum value = DynamicsAuthTypeEnum.AD;
+
+				if (IsRadioButtonSelected(rdoADAuth)) { return DynamicsAuthTypeEnum.AD; }
+				if (IsRadioButtonSelected(rdoIFDAuth)) { return DynamicsAuthTypeEnum.IFD; }
+				if (IsRadioButtonSelected(rdoOAuth)) { return DynamicsAuthTypeEnum.OAuth; }
+				if (IsRadioButtonSelected(rdoClientSecret)) { return DynamicsAuthTypeEnum.ClientSecret; }
+
 				return value;
 			}
+		}
+
+		private bool IsRadioButtonSelected(RadioButton radioButtonControl)
+		{
+			bool result = false;
+			if (radioButtonControl.InvokeRequired)
+			{
+				radioButtonControl.BeginInvoke(new MethodInvoker(delegate { result = radioButtonControl.Checked; }));
+			}
+			else
+			{
+				result = radioButtonControl.Checked;
+			}
+			return result;
 		}
 
 		private void FillMigrationQueues(bool moveToExternal, bool migrateAnnotations, bool migrateEmailAttachments)
 		{
 			OrganizationServiceProxy localProxy = null;
-			if (IfdSelected)
-			{
-				localProxy = new OrganizationServiceProxy(serviceManagement, authCredentials.SecurityTokenResponse);
-			}
-			else
-			{
-				localProxy = new OrganizationServiceProxy(serviceManagement, authCredentials.ClientCredentials);
-			}
+			localProxy = GetServiceProxy(serviceManagement, authCredentials);
 
 			annotationsToMigrate = new ConcurrentQueue<Guid>();
 			attachmentsToMigrate = new ConcurrentQueue<Guid>();
@@ -613,5 +631,96 @@ namespace Migrate
 			if (!chkMoveAnnotations.Enabled)
 				chkMoveAnnotations.Checked = false;
 		}
-	}
+
+		private void rdoAzureSasToken_CheckedChanged(object sender, EventArgs e)
+        {
+			lblAccountKey.Text = "Azure SAS Token :";
+        }
+
+        private void rdoAzureAccessKey_CheckedChanged(object sender, EventArgs e)
+        {
+			lblAccountKey.Text = "Azure Access Key :";
+        }
+
+		private OrganizationServiceProxy GetServiceProxy(IServiceManagement<IOrganizationService> orgService, AuthenticationCredentials authCredentials)
+		{
+			OrganizationServiceProxy orgProxy = null;
+
+			switch (DynamicsAuthType)
+			{
+				case DynamicsAuthTypeEnum.AD:
+					authCredentials = GetCredentials(orgService, AuthenticationProviderType.ActiveDirectory);
+					//authCredentials.ClientCredentials.Windows.ClientCredential = System.Net.CredentialCache.DefaultNetworkCredentials;
+					orgProxy = new OrganizationServiceProxy(orgService, authCredentials.ClientCredentials);
+					break;
+
+				case DynamicsAuthTypeEnum.IFD:
+					authCredentials = GetCredentials(orgService, AuthenticationProviderType.Federation);
+					//authCredentials.ClientCredentials.UserName.UserName = txtUsername.Text;
+					//authCredentials.ClientCredentials.UserName.Password = txtPassword.Text;
+					//authCredentials = serviceManagement.Authenticate(authCredentials);
+					orgProxy = new OrganizationServiceProxy(orgService, authCredentials.SecurityTokenResponse);
+					break;
+
+				case DynamicsAuthTypeEnum.OAuth:
+					authCredentials = GetCredentials(orgService, AuthenticationProviderType.OnlineFederation);
+					orgProxy = new OrganizationServiceProxy(orgService, authCredentials.SecurityTokenResponse);
+					break;
+
+				case DynamicsAuthTypeEnum.ClientSecret:
+					break;
+			}
+
+			return orgProxy;
+		}
+
+		/// <summary>
+		/// Obtain the AuthenticationCredentials based on AuthenticationProviderType.
+		/// </summary>
+		/// <param name="service">A service management object.</param>
+		/// <param name="endpointType">An AuthenticationProviderType of the CRM environment.</param>
+		/// <returns>Get filled credentials.</returns>
+		private AuthenticationCredentials GetCredentials<TService>(IServiceManagement<TService> service, AuthenticationProviderType endpointType)
+		{
+			AuthenticationCredentials authCredentials = new AuthenticationCredentials();
+
+			switch (endpointType)
+			{
+				case AuthenticationProviderType.ActiveDirectory:
+					authCredentials.ClientCredentials.Windows.ClientCredential =
+						new System.Net.NetworkCredential(txtUsername.Text,
+							txtPassword.Text);
+					break;
+				case AuthenticationProviderType.LiveId:
+					authCredentials.ClientCredentials.UserName.UserName = txtUsername.Text;
+					authCredentials.ClientCredentials.UserName.Password = txtPassword.Text;
+					authCredentials.SupportingCredentials = new AuthenticationCredentials();
+					authCredentials.SupportingCredentials.ClientCredentials =
+						Microsoft.Crm.Services.Utility.DeviceIdManager.LoadOrRegisterDevice();
+					break;
+				default: // For Federated and OnlineFederated environments.                    
+					authCredentials.ClientCredentials.UserName.UserName = txtUsername.Text;
+					authCredentials.ClientCredentials.UserName.Password = txtPassword.Text;
+					// For OnlineFederated single-sign on, you could just use current UserPrincipalName instead of passing user name and password.
+					// authCredentials.UserPrincipalName = UserPrincipal.Current.UserPrincipalName;  // Windows Kerberos
+
+					// The service is configured for User Id authentication, but the user might provide Microsoft
+					// account credentials. If so, the supporting credentials must contain the device credentials.
+					if (endpointType == AuthenticationProviderType.OnlineFederation)
+					{
+						IdentityProvider provider = service.GetIdentityProvider(authCredentials.ClientCredentials.UserName.UserName);
+						if (provider != null && provider.IdentityProviderType == IdentityProviderType.LiveId)
+						{
+							authCredentials.SupportingCredentials = new AuthenticationCredentials();
+							authCredentials.SupportingCredentials.ClientCredentials =
+								Microsoft.Crm.Services.Utility.DeviceIdManager.LoadOrRegisterDevice();
+						}
+					}
+
+					break;
+			}
+
+			return authCredentials;
+		}
+    }
 }

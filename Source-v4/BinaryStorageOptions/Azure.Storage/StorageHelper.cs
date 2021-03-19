@@ -19,7 +19,7 @@ namespace Azure.Storage
 		private const string apiVersion = "2015-02-21";
 		private const string skaTemplate = "{0}\n{1}\n{2}\n{3}\n{4}\n{5}\n{6}\n{7}\n{8}\n{9}\n{10}\n{11}\n{12}\n{13}";
 		private const string skaTableTemplate = "{0}\n{1}\n{2}\n{3}\n{4}";
-		private const int maxRetries = 2;
+        private const int maxRetries = 2;
 
 		private string uriTemplate;
 		private string secondaryUriTemplate;
@@ -181,7 +181,7 @@ namespace Azure.Storage
 				catch (Exception ex)
 				{
 					throw new Microsoft.Xrm.Sdk.InvalidPluginExecutionException(ex.Message);
-                }
+				}
 			}
 			return null;
 		}

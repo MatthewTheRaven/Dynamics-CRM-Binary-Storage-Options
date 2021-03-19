@@ -1,9 +1,11 @@
-﻿using Microsoft.Xrm.Sdk;
+﻿using BinaryStorageOptions.Providers;
+using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Query;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace BinaryStorageOptions
@@ -13,6 +15,8 @@ namespace BinaryStorageOptions
 		public void Retrieve(IServiceProvider serviceProvider)
 		{
 			IPluginExecutionContext context = (IPluginExecutionContext)serviceProvider.GetService(typeof(IPluginExecutionContext));
+			ITracingService tracingService = (ITracingService)serviceProvider.GetService(typeof(ITracingService));
+
 			if (context.MessageName != MessageName.Retrieve && context.MessageName != MessageName.RetrieveMultiple)
 				//Invalid event attached
 				return;
@@ -61,12 +65,12 @@ namespace BinaryStorageOptions
 
 				Providers.IBinaryStorageProvider storageProvider = Providers.Factory.GetStorageProvider(configurationProvider);
 				entities.ForEach(e => 
-					HandleEntity(service, context.UserId, storageProvider, e, GenericConstants.Constants[e.LogicalName][GenericConstants.DocumentBodyAttributeKey], GenericConstants.Constants[e.LogicalName][GenericConstants.FileNameAttributeKey])
+					HandleEntity(service, tracingService, context.UserId, storageProvider, e, GenericConstants.Constants[e.LogicalName][GenericConstants.DocumentBodyAttributeKey], GenericConstants.Constants[e.LogicalName][GenericConstants.FileNameAttributeKey])
 				);
 			}
 		}
 
-		private void HandleEntity(IOrganizationService service, Guid userId, Providers.IBinaryStorageProvider storageProvider, Entity entity, string documentBodyAttributeKey, string fileNameAttributeKey)
+		private void HandleEntity(IOrganizationService service, ITracingService tracingService, Guid userId, Providers.IBinaryStorageProvider storageProvider, Entity entity, string documentBodyAttributeKey, string fileNameAttributeKey)
 		{
 			try
 			{
@@ -76,20 +80,57 @@ namespace BinaryStorageOptions
 					return;
 				}
 
-				if (entity.Attributes.ContainsKey(CrmConstants.FileSizeKey) &&
-						(int)entity.Attributes[CrmConstants.FileSizeKey] == GenericConstants.EmptyBodyContentDataLength &&
-						entity.Attributes.ContainsKey(fileNameAttributeKey))
+				// if the query did not include the filename, try to retrieve that
+				if (!entity.Attributes.ContainsKey(fileNameAttributeKey))
 				{
-					entity.Attributes[CrmConstants.FileSizeKey] = storageProvider.GetFileSize(entity.Id, (string)entity.Attributes[fileNameAttributeKey]);
+					var filenameResult = service.Retrieve(entity.LogicalName, entity.Id, new ColumnSet(fileNameAttributeKey));
+					if (filenameResult.Attributes.ContainsKey(fileNameAttributeKey))
+					{
+						entity.Attributes.Add(fileNameAttributeKey, filenameResult[fileNameAttributeKey]);
+					}
 				}
 
-				if (entity.Attributes.ContainsKey(documentBodyAttributeKey) && 
-						(string)entity.Attributes[documentBodyAttributeKey] == GenericConstants.EmptyBodyContent &&
-						entity.Attributes.ContainsKey(fileNameAttributeKey))
+				try
 				{
-					//If the body is requested, go fetch it and populate it where CRM wants it
-					byte[] data = storageProvider.Read(entity.Id, (string)entity.Attributes[fileNameAttributeKey]);
-					entity.Attributes[documentBodyAttributeKey] = Convert.ToBase64String(data);
+					if (entity.Attributes.ContainsKey(CrmConstants.FileSizeKey) &&
+							((int)entity.Attributes[CrmConstants.FileSizeKey] == GenericConstants.EmptyBodyContentDataLength || (int)entity.Attributes[CrmConstants.FileSizeKey] == GenericConstants.AltEmptyBodyContentDataLength) &&
+							entity.Attributes.ContainsKey(fileNameAttributeKey))
+					{
+						entity.Attributes[CrmConstants.FileSizeKey] = storageProvider.GetFileSize(entity.Id, (string)entity.Attributes[fileNameAttributeKey]);
+					}
+				}
+				catch (Exception ex)
+				{
+					tracingService.Trace("Error getting file size: {0}", ex.ToString());
+					// if the filesize lookup fails, just return 1
+					entity.Attributes[CrmConstants.FileSizeKey] = 1;
+				}
+
+				try
+				{
+					if (entity.Attributes.ContainsKey(documentBodyAttributeKey) && entity.Attributes.ContainsKey(fileNameAttributeKey))
+					{
+						string body = (string)entity.Attributes[documentBodyAttributeKey];
+
+						if (body == GenericConstants.EmptyBodyContent)
+						{
+							tracingService.Trace("Found Binary Attachment with filename {0}", (string)entity[fileNameAttributeKey]);
+							//If the body is requested, go fetch it and populate it where CRM wants it
+							byte[] data = storageProvider.Read(entity.Id, (string)entity[fileNameAttributeKey]);
+							entity.Attributes[documentBodyAttributeKey] = Convert.ToBase64String(data);
+						}
+                        else if (body == GenericConstants.EmptyBodyContentBase64)
+                        {
+							tracingService.Trace("Found Base64 Attachment with filename {0}", (string)entity[fileNameAttributeKey]);
+							string data = storageProvider.ReadString(entity.Id, (string)entity[fileNameAttributeKey]).Trim();
+							entity.Attributes[documentBodyAttributeKey] = data.Replace("\u0000", string.Empty);
+						}
+                    }
+				}
+				catch (Exception ex)
+				{
+					tracingService.Trace("Error getting document body: {0}", ex.ToString());
+					entity.Attributes[documentBodyAttributeKey] = string.Empty;
 				}
 			}
 			catch (Exception ex)

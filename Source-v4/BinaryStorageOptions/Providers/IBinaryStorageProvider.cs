@@ -9,6 +9,7 @@ namespace BinaryStorageOptions.Providers
 		bool Create(Guid id, string filename, byte[] data);
 		bool Delete(Guid id, string filename);
 		byte[] Read(Guid id, string filename);
+		string ReadString(Guid id, string filename);
 		int GetFileSize(Guid id, string filename);
 	}
 }

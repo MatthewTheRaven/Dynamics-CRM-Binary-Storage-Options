@@ -10,7 +10,9 @@ namespace BinaryStorageOptions
 	public static class GenericConstants
 	{
 		public const string EmptyBodyContent = "IA==";
+		public const string EmptyBodyContentBase64 = "SA==";
 		public const int EmptyBodyContentDataLength = 3;
+		public const int AltEmptyBodyContentDataLength = 1; // some instances report 1 given the empty body content
 		public const string DocumentBodyAttributeKey = "DocumentBodyAttributeKey";
 		public const string FileNameAttributeKey = "FileNameAttributeKey";
 		public const string AttachementExtensionEntityName = "bso_attachmentextension";

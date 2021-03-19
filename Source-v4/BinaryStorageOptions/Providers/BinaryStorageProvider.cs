@@ -95,6 +95,13 @@ namespace BinaryStorageOptions.Providers
 			return data;
 		}
 
+		public string ReadString(Guid id, string filename)
+		{
+			Dictionary<string, string> metaData;
+			string data = storageProvider.ReadString(id, filename, out metaData);
+			return data;
+		}
+
 		private double CompressionThreshold
 		{
 			get

@@ -52,6 +52,18 @@ namespace BinaryStorageOptions.Providers
 			return data;
 		}
 
+		public string ReadString(Guid id, string filename, out Dictionary<string, string> metaData)
+		{
+			metaData = null;
+			Dictionary<string, string> storeMetaData = null;
+			string data = blobStorageHelper.GetBlobString(configuration.Container, GetFullFilename(id, filename), out storeMetaData);
+			if (storeMetaData != null)
+			{
+				metaData = storeMetaData.ToDictionary(m => m.Key.Replace(MetaDataPrefix, ""), m => m.Value);
+			}
+			return data;
+		}
+
 		public Dictionary<string, string> GetMetaData(Guid id, string filename, bool customOnly = true)
 		{
 			return blobStorageHelper.GetMetaData(configuration.Container, GetFullFilename(id, filename), customOnly);

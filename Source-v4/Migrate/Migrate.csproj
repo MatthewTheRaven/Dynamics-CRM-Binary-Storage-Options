@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Migrate</RootNamespace>
     <AssemblyName>Migrate</AssemblyName>
-    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <SccProjectName>SAK</SccProjectName>
@@ -18,6 +18,7 @@
     <SccProvider>SAK</SccProvider>
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -39,14 +40,17 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Microsoft.Crm.Sdk.Proxy, Version=7.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\packages\Microsoft.Crm.Sdk.Proxy.2015.7.1.0\lib\net452\Microsoft.Crm.Sdk.Proxy.dll</HintPath>
+    <Reference Include="Microsoft.Crm.Sdk.Proxy, Version=9.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\Packages\Microsoft.CrmSdk.CoreTools.9.1.0.68\content\bin\coretools\Microsoft.Crm.Sdk.Proxy.dll</HintPath>
     </Reference>
-    <Reference Include="Microsoft.Xrm.Sdk, Version=7.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\packages\Microsoft.Xrm.Sdk.2015.7.1.0.1085\lib\net452\Microsoft.Xrm.Sdk.dll</HintPath>
+    <Reference Include="Microsoft.Xrm.Sdk, Version=9.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\Packages\Microsoft.CrmSdk.CoreTools.9.1.0.68\content\bin\coretools\Microsoft.Xrm.Sdk.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Security" />
     <Reference Include="System.ServiceModel" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -60,6 +64,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ControlExtensions.cs" />
+    <Compile Include="deviceidmanager.cs" />
     <Compile Include="InvokeExtensions.cs" />
     <Compile Include="Main.cs">
       <SubType>Form</SubType>
@@ -80,7 +85,13 @@
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
     </Compile>
+    <None Include="bin\coretools\CrmSvcUtil.exe.config" />
+    <None Include="bin\coretools\LicenseTerms.docx" />
+    <None Include="bin\coretools\SolutionPackager.exe.config" />
+    <None Include="bin\Debug\Migrate.exe.config" />
+    <None Include="bin\Release\Migrate.exe.config" />
     <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
@@ -100,6 +111,46 @@
       <Project>{abf867de-0471-473e-8ca0-efaae6f4761d}</Project>
       <Name>BinaryStorageOptions</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="bin\coretools\CrmSvcUtil.exe" />
+    <Content Include="bin\coretools\CrmSvcUtil.xml" />
+    <Content Include="bin\coretools\Microsoft.ApplicationInsights.dll" />
+    <Content Include="bin\coretools\Microsoft.Crm.Sdk.Proxy.dll" />
+    <Content Include="bin\coretools\Microsoft.IdentityModel.Clients.ActiveDirectory.dll" />
+    <Content Include="bin\coretools\Microsoft.PowerApps.AppInsights.BatchedTelemetry.dll" />
+    <Content Include="bin\coretools\Microsoft.PowerApps.AppInsights.BatchedTelemetryChannel.dll" />
+    <Content Include="bin\coretools\Microsoft.Rest.ClientRuntime.dll" />
+    <Content Include="bin\coretools\Microsoft.Xrm.Sdk.Deployment.dll" />
+    <Content Include="bin\coretools\Microsoft.Xrm.Sdk.dll" />
+    <Content Include="bin\coretools\Microsoft.Xrm.Tooling.Connector.dll" />
+    <Content Include="bin\coretools\Microsoft.Xrm.Tooling.CrmConnectControl.dll" />
+    <Content Include="bin\coretools\Microsoft.Xrm.Tooling.Ui.Styles.dll" />
+    <Content Include="bin\coretools\Newtonsoft.Json.dll" />
+    <Content Include="bin\coretools\Other Redistributable.txt" />
+    <Content Include="bin\coretools\pacTelemetryUpload.exe" />
+    <Content Include="bin\coretools\SolutionPackager.exe" />
+    <Content Include="bin\coretools\SolutionPackagerLib.dll" />
+    <Content Include="bin\coretools\System.Diagnostics.DiagnosticSource.dll" />
+    <Content Include="bin\coretools\System.ValueTuple.dll" />
+    <Content Include="bin\Debug\BinaryStorageOptions.dll" />
+    <Content Include="bin\Debug\BinaryStorageOptions.pdb" />
+    <Content Include="bin\Debug\Microsoft.Crm.Sdk.Proxy.dll" />
+    <Content Include="bin\Debug\Microsoft.Crm.Sdk.Proxy.xml" />
+    <Content Include="bin\Debug\Microsoft.Xrm.Sdk.dll" />
+    <Content Include="bin\Debug\Microsoft.Xrm.Sdk.xml" />
+    <Content Include="bin\Debug\Migrate.exe" />
+    <Content Include="bin\Debug\Migrate.pdb" />
+    <Content Include="bin\Release\BinaryStorageOptions.dll" />
+    <Content Include="bin\Release\BinaryStorageOptions.pdb" />
+    <Content Include="bin\Release\Microsoft.Crm.Sdk.Proxy.dll" />
+    <Content Include="bin\Release\Microsoft.Crm.Sdk.Proxy.xml" />
+    <Content Include="bin\Release\Microsoft.Xrm.Sdk.dll" />
+    <Content Include="bin\Release\Microsoft.Xrm.Sdk.xml" />
+    <Content Include="bin\Release\Migrate.exe" />
+  </ItemGroup>
+  <ItemGroup>
+    <WCFMetadata Include="Connected Services\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

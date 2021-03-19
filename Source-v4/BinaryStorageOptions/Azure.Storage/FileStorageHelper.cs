@@ -151,6 +151,18 @@ namespace Azure.Storage
 			return response.Content.ReadAsByteArrayAsync().Result;
 		}
 
+		public string GetFileAsString(string share, string directory, string name, out Dictionary<string, string> metaData)
+		{
+			string uri = string.Format("{0}/{1}/{2}", share.ToLower(), directory.ToLower(), name.ToLower()).Replace("//", "/");
+			metaData = GetMetaData(share, directory, name);
+			var response = ExecuteRestRequestWithFailover(HtmlVerb.GET, uri);
+			if (!response.IsSuccessStatusCode)
+			{
+				throw new HttpRequestException(string.Format("Could not get file '{0}'. {1} : {2}", uri, response.StatusCode, response.ReasonPhrase));
+			}
+			return response.Content.ReadAsStringAsync().Result;
+		}
+
 		public Dictionary<string, string> GetMetaData(string share, string directory, string name, bool customOnly = true)
 		{
 			string uri = string.Format("{0}/{1}/{2}?comp=metadata", share.ToLower(), directory.ToLower(), name.ToLower()).Replace("//", "/");

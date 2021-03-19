@@ -152,6 +152,18 @@ namespace Azure.Storage
 			return response.Content.ReadAsByteArrayAsync().Result;
 		}
 
+		public string GetBlobString(string container, string name, out Dictionary<string, string> metaData)
+		{
+			string uri = string.Format("{0}/{1}", container, name);
+			metaData = GetMetaData(container, name);
+			var response = ExecuteRestRequestWithFailover(HtmlVerb.GET, uri);
+			if (!response.IsSuccessStatusCode)
+			{
+				throw new HttpRequestException(string.Format("Could not get file '{0}'. {1} : {2}", uri, response.StatusCode, response.ReasonPhrase));
+			}
+			return response.Content.ReadAsStringAsync().Result;
+		}
+
 		public Dictionary<string, string> GetMetaData(string container, string name, bool customOnly = true)
 		{
 			string uri = string.Format("{0}/{1}", container, name);
